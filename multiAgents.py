@@ -355,6 +355,17 @@ class NeuralAgent(Agent):
         # Convertir a matriz
         state_matrix = self.state_to_matrix(state)
         
+        width, height = state_matrix.shape
+        mid_x = width // 2
+        mid_y = height // 2
+
+    
+        zonas = {
+            "arriba_izquierda": state_matrix[0:mid_x, mid_y:height],
+            "arriba_derecha": state_matrix[mid_x:width, mid_y:height],
+            "abajo_izquierda": state_matrix[0:mid_x, 0:mid_y],
+            "abajo_derecha": state_matrix[mid_x:width, 0:mid_y]
+        }
         # Convertir a tensor
         state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
         
@@ -366,14 +377,14 @@ class NeuralAgent(Agent):
         # Obtener acciones legales
         legal_actions = state.getLegalActions()
         
-        # Aplicar heurísticas adicionales, similar a betterEvaluationFunction
-        score = state.getScore()
+        # Aplicar heurístia
         
         # Mejorar la evaluación con conocimiento del dominio
         pacman_pos = state.getPacmanPosition()
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
         
+        score = state.getScore()
         # Factor 1: Distancia a la comida más cercana
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
@@ -390,8 +401,42 @@ class NeuralAgent(Agent):
             else:
                 # Si no está asustado, evitarlo
                 if ghost_distance <= 2:
-                    score -= 200  # Gran penalización por estar demasiado cerca
+                   score -= 200  # Gran penalización por estar demasiado cerca
+
+        # Factor 3: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
+        # Así se puede evitar que haya comida aislada
+        px, py = pacman_pos
         
+        # 3.1 Identificar en qué zona está Pacman actualmente
+        if px < mid_x and py >= mid_y:
+            zona_actual = "arriba_izquierda"
+        elif px >= mid_x and py >= mid_y:
+            zona_actual = "arriba_derecha"
+        elif px < mid_x and py < mid_y:
+            zona_actual = "abajo_izquierda"
+        else:
+            zona_actual = "abajo_derecha"
+
+        # Contar comida por zona
+        comida_por_zona = {}
+        for nombre_zona, submapa in zonas.items():
+            # Contamos cuántas casillas del submapa representan comida (La comida se representa con un 2 y está normalizado a 2/6)
+            num_comidas = np.sum(submapa == 2/6)
+            comida_por_zona[nombre_zona] = num_comidas
+
+        # Aplicamos beneficio por peinar la zona actual o irse a otra zona en caso de que no quede comida en esta zona
+        comida_en_mi_zona = comida_por_zona[zona_actual]
+        total_comida_mapa = len(food)
+
+        if total_comida_mapa > 0:
+            # Si todavía queda comida en la zona donde está Pacman, le premiamos por quedarse a limpiar.
+            # Cuanta más comida quede proporcionalmente en su zona, mayor es el incentivo de no irse.
+            if comida_en_mi_zona > 0:
+                score += 20.0 * (comida_en_mi_zona / total_comida_mapa)
+            else:
+                # Si ya limpió su zona por completo pero el juego sigue (hay comida en otras zonas),
+                # penalizamos quedarse en esta zona dado que ya no queda comida y obligamos a que cambie de zona
+                score -= 15.0
         # Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
