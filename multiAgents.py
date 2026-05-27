@@ -359,7 +359,7 @@ class NeuralAgent(Agent):
         mid_x = width // 2
         mid_y = height // 2
 
-    
+
         zonas = {
             "arriba_izquierda": state_matrix[0:mid_x, mid_y:height],
             "arriba_derecha": state_matrix[mid_x:width, mid_y:height],
@@ -388,7 +388,7 @@ class NeuralAgent(Agent):
         # Factor 1: Distancia a la comida más cercana
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
-            score += 1.0 / (min_food_distance + 1)
+            score += 5.0 / (min_food_distance + 1)
         
         # Factor 2: Proximidad a fantasmas
         for ghost_state in ghost_states:
@@ -403,7 +403,7 @@ class NeuralAgent(Agent):
                 if ghost_distance <= 2:
                    score -= 200  # Gran penalización por estar demasiado cerca
 
-        # Factor 3: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
+        # Factor 4: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
         # Así se puede evitar que haya comida aislada
         px, py = pacman_pos
         
@@ -432,18 +432,44 @@ class NeuralAgent(Agent):
             # Si todavía queda comida en la zona donde está Pacman, le premiamos por quedarse a limpiar.
             # Cuanta más comida quede proporcionalmente en su zona, mayor es el incentivo de no irse.
             if comida_en_mi_zona > 0:
-                score += 20.0 * (comida_en_mi_zona / total_comida_mapa)
+                score += 8.0 * (comida_en_mi_zona / total_comida_mapa)
             else:
                 # Si ya limpió su zona por completo pero el juego sigue (hay comida en otras zonas),
                 # penalizamos quedarse en esta zona dado que ya no queda comida y obligamos a que cambie de zona
-                score -= 15.0
-        # Combinar la puntuación de la red con la heurística
+                score -= 100.0
+        #Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
             if action in legal_actions:
                 neural_score += probabilities[i] * 100
         
-        return score + neural_score
+        
+       # Factor 4: Premiar comer cápsulas (cocos) si los fantasmas están cerca
+        capsulas = state.getCapsules()
+        if capsulas:
+            # Calcular la distancia al fantasma más cercano que no esté asustado
+            fantasmas_peligrosos = [
+                manhattanDistance(pacman_pos, g.getPosition()) 
+                for g in ghost_states if g.scaredTimer == 0
+            ]
+            
+            if fantasmas_peligrosos:
+                min_dist_fantasma = min(fantasmas_peligrosos)
+                
+                # Definimos el umbral de peligro (la mitad del mapa)
+                umbral_peligro = min(width, height) / 2
+                
+                if min_dist_fantasma <= umbral_peligro:
+                    # Si hay peligro, premiar la cercanía a la cápsula
+                    min_dist_capsula = min(manhattanDistance(pacman_pos, cap) for cap in capsulas)
+                    
+                    #Cuanto más cerca la cápsula y más cerca el fantasma, más urge comerla
+                    score += 100.0 / (min_dist_capsula + 1)
+        
+
+
+
+        return score  + neural_score
 
     def getAction(self, state):
         """
