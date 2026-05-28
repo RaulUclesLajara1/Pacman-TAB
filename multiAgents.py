@@ -274,6 +274,9 @@ class NeuralAgent(Agent):
         
         # Contador de movimientos
         self.move_count = 0
+
+        # Historial de posiciones recientes para anti-ciclo
+        self.position_history = []
         
         print(f"NeuralAgent inicializado, usando dispositivo: {self.device}")
 
@@ -355,17 +358,6 @@ class NeuralAgent(Agent):
         # Convertir a matriz
         state_matrix = self.state_to_matrix(state)
         
-        width, height = state_matrix.shape
-        mid_x = width // 2
-        mid_y = height // 2
-
-
-        zonas = {
-            "arriba_izquierda": state_matrix[0:mid_x, mid_y:height],
-            "arriba_derecha": state_matrix[mid_x:width, mid_y:height],
-            "abajo_izquierda": state_matrix[0:mid_x, 0:mid_y],
-            "abajo_derecha": state_matrix[mid_x:width, 0:mid_y]
-        }
         # Convertir a tensor
         state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
         
@@ -377,99 +369,55 @@ class NeuralAgent(Agent):
         # Obtener acciones legales
         legal_actions = state.getLegalActions()
         
-        # Aplicar heurístia
+        # Aplicar heurísticas adicionales, similar a betterEvaluationFunction
+        score = state.getScore()
         
         # Mejorar la evaluación con conocimiento del dominio
         pacman_pos = state.getPacmanPosition()
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
-        
-        score = state.getScore()
-        # Factor 1: Distancia a la comida más cercana
+
+        # Factor 1: Premiar ir a por comida
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
-            score += 5.0 / (min_food_distance + 1)
+            score += 15.0 / (min_food_distance + 1)
         
-        # Factor 2: Proximidad a fantasmas
+            score -= len(food) * 2.0
+        
+        # Factor 2: Penalizar estar cerca de fantasmas si no están asustados
         for ghost_state in ghost_states:
             ghost_pos = ghost_state.getPosition()
-            ghost_distance = manhattanDistance(pacman_pos, ghost_pos)
+            ghost_dist = manhattanDistance(pacman_pos, ghost_pos)
             
             if ghost_state.scaredTimer > 0:
-                # Si el fantasma está asustado, acercarse a él
-                score += 50 / (ghost_distance + 1)
+                pass
+                # En ocasiones es mejor no comer fantasmas cuando están asustados,
+                # cuando están asustados se alejan por lo que se puede aprovechar
+                # ese tiempo para centrarse únicamente en comer cocos.
             else:
-                # Si no está asustado, evitarlo
-                if ghost_distance <= 2:
-                   score -= 200  # Gran penalización por estar demasiado cerca
+                # Solo penalizar dentro del radio de peligro
+                radio_peligro = 4  # Solo penalizar si el fantasma está realmente cerca
+                if ghost_dist < radio_peligro:
+                    if ghost_dist <= 2:
+                        score -= 650 / ghost_dist + 1  # Muerte inminente
+                    else:
+                        score -= 180.0 / ghost_dist + 1
 
-        # Factor 4: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
-        # Así se puede evitar que haya comida aislada
-        px, py = pacman_pos
-        
-        # 3.1 Identificar en qué zona está Pacman actualmente
-        if px < mid_x and py >= mid_y:
-            zona_actual = "arriba_izquierda"
-        elif px >= mid_x and py >= mid_y:
-            zona_actual = "arriba_derecha"
-        elif px < mid_x and py < mid_y:
-            zona_actual = "abajo_izquierda"
-        else:
-            zona_actual = "abajo_derecha"
+        # Factor 3: Historial de posicines anteriores para penalizar entrar en bucles
+        pacman_pos = state.getPacmanPosition()
+        visit_count = self.position_history.count(pacman_pos)
+        if visit_count > 1:
+        # Penalización proporcional: cuantas más veces aparece la posición
+        # en el historial reciente, más se penaliza esa dirección.
+            score -= 100 * visit_count
 
-        # Contar comida por zona
-        comida_por_zona = {}
-        for nombre_zona, submapa in zonas.items():
-            # Contamos cuántas casillas del submapa representan comida (La comida se representa con un 2 y está normalizado a 2/6)
-            num_comidas = np.sum(submapa == 2/6)
-            comida_por_zona[nombre_zona] = num_comidas
-
-        # Aplicamos beneficio por peinar la zona actual o irse a otra zona en caso de que no quede comida en esta zona
-        comida_en_mi_zona = comida_por_zona[zona_actual]
-        total_comida_mapa = len(food)
-
-        if total_comida_mapa > 0:
-            # Si todavía queda comida en la zona donde está Pacman, le premiamos por quedarse a limpiar.
-            # Cuanta más comida quede proporcionalmente en su zona, mayor es el incentivo de no irse.
-            if comida_en_mi_zona > 0:
-                score += 8.0 * (comida_en_mi_zona / total_comida_mapa)
-            else:
-                # Si ya limpió su zona por completo pero el juego sigue (hay comida en otras zonas),
-                # penalizamos quedarse en esta zona dado que ya no queda comida y obligamos a que cambie de zona
-                score -= 100.0
-        #Combinar la puntuación de la red con la heurística
+        # Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
             if action in legal_actions:
                 neural_score += probabilities[i] * 100
         
-        
-       # Factor 4: Premiar comer cápsulas (cocos) si los fantasmas están cerca
-        capsulas = state.getCapsules()
-        if capsulas:
-            # Calcular la distancia al fantasma más cercano que no esté asustado
-            fantasmas_peligrosos = [
-                manhattanDistance(pacman_pos, g.getPosition()) 
-                for g in ghost_states if g.scaredTimer == 0
-            ]
-            
-            if fantasmas_peligrosos:
-                min_dist_fantasma = min(fantasmas_peligrosos)
-                
-                # Definimos el umbral de peligro (la mitad del mapa)
-                umbral_peligro = min(width, height) / 2
-                
-                if min_dist_fantasma <= umbral_peligro:
-                    # Si hay peligro, premiar la cercanía a la cápsula
-                    min_dist_capsula = min(manhattanDistance(pacman_pos, cap) for cap in capsulas)
-                    
-                    #Cuanto más cerca la cápsula y más cerca el fantasma, más urge comerla
-                    score += 100.0 / (min_dist_capsula + 1)
-        
-
-
-
-        return score  + neural_score
+        return score + neural_score
 
     def getAction(self, state):
         """
@@ -478,6 +426,18 @@ class NeuralAgent(Agent):
         """
         self.move_count += 1
         
+        # ── Actualización del historial ──────────────────────────────────────────
+        # Se registra la posición REAL y ACTUAL de Pacman UNA SOLA VEZ por turno,
+        # aquí en getAction, antes de evaluar ningún sucesor.
+        # No se hace en evaluationFunction porque esa se llama múltiples veces
+        # por turno (una por cada acción legal), lo que corrompería el historial
+        # con posiciones hipotéticas de estados que nunca llegarán a ocurrir.
+        current_pos = state.getPacmanPosition()
+        current_pos = state.getPacmanPosition()
+        self.position_history.append(current_pos)
+        if len(self.position_history) > 25:
+            self.position_history.pop(0)
+
         # Si no hay modelo, hacer un movimiento aleatorio
         if self.model is None:
             print("ERROR: Modelo no cargado. Haciendo movimiento aleatorio.")
