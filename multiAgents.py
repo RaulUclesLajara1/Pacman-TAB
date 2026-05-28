@@ -203,18 +203,10 @@ class MinimaxAgent(MultiAgentSearchAgent):
 
         return bestAction
     
-class AlphaBetaAgent(MultiAgentSearchAgent):
-    """
-    Your minimax agent with alpha-beta pruning (question 3)
-    """
 
-    def getAction(self, gameState: GameState):
-        """
-        Returns the minimax action using self.depth and self.evaluationFunction
-        """
-        "*** YOUR CODE HERE ***"
-        util.raiseNotDefined()
 
+
+        
 class ExpectimaxAgent(MultiAgentSearchAgent):
     """
       Your expectimax agent (question 4)
@@ -403,40 +395,40 @@ class NeuralAgent(Agent):
                 if ghost_distance <= 2:
                    score -= 200  # Gran penalización por estar demasiado cerca
 
-        # Factor 4: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
-        # Así se puede evitar que haya comida aislada
-        px, py = pacman_pos
+        # # Factor 4: Peinar por zonas. Separando el mapa en 4 zonas, se premia que pacman se acerque a la comida de su zona antes que ir a otra zona.
+        # # Así se puede evitar que haya comida aislada
+        # px, py = pacman_pos
         
-        # 3.1 Identificar en qué zona está Pacman actualmente
-        if px < mid_x and py >= mid_y:
-            zona_actual = "arriba_izquierda"
-        elif px >= mid_x and py >= mid_y:
-            zona_actual = "arriba_derecha"
-        elif px < mid_x and py < mid_y:
-            zona_actual = "abajo_izquierda"
-        else:
-            zona_actual = "abajo_derecha"
+        # # 3.1 Identificar en qué zona está Pacman actualmente
+        # if px < mid_x and py >= mid_y:
+        #     zona_actual = "arriba_izquierda"
+        # elif px >= mid_x and py >= mid_y:
+        #     zona_actual = "arriba_derecha"
+        # elif px < mid_x and py < mid_y:
+        #     zona_actual = "abajo_izquierda"
+        # else:
+        #     zona_actual = "abajo_derecha"
 
-        # Contar comida por zona
-        comida_por_zona = {}
-        for nombre_zona, submapa in zonas.items():
-            # Contamos cuántas casillas del submapa representan comida (La comida se representa con un 2 y está normalizado a 2/6)
-            num_comidas = np.sum(submapa == 2/6)
-            comida_por_zona[nombre_zona] = num_comidas
+        # # Contar comida por zona
+        # comida_por_zona = {}
+        # for nombre_zona, submapa in zonas.items():
+        #     # Contamos cuántas casillas del submapa representan comida (La comida se representa con un 2 y está normalizado a 2/6)
+        #     num_comidas = np.sum(submapa == 2/6)
+        #     comida_por_zona[nombre_zona] = num_comidas
 
-        # Aplicamos beneficio por peinar la zona actual o irse a otra zona en caso de que no quede comida en esta zona
-        comida_en_mi_zona = comida_por_zona[zona_actual]
-        total_comida_mapa = len(food)
+        # # Aplicamos beneficio por peinar la zona actual o irse a otra zona en caso de que no quede comida en esta zona
+        # comida_en_mi_zona = comida_por_zona[zona_actual]
+        # total_comida_mapa = len(food)
 
-        if total_comida_mapa > 0:
-            # Si todavía queda comida en la zona donde está Pacman, le premiamos por quedarse a limpiar.
-            # Cuanta más comida quede proporcionalmente en su zona, mayor es el incentivo de no irse.
-            if comida_en_mi_zona > 0:
-                score += 8.0 * (comida_en_mi_zona / total_comida_mapa)
-            else:
-                # Si ya limpió su zona por completo pero el juego sigue (hay comida en otras zonas),
-                # penalizamos quedarse en esta zona dado que ya no queda comida y obligamos a que cambie de zona
-                score -= 100.0
+        # if total_comida_mapa > 0:
+        #     # Si todavía queda comida en la zona donde está Pacman, le premiamos por quedarse a limpiar.
+        #     # Cuanta más comida quede proporcionalmente en su zona, mayor es el incentivo de no irse.
+        #     if comida_en_mi_zona > 0:
+        #         score += 8.0 * (comida_en_mi_zona / total_comida_mapa)
+        #     else:
+        #         # Si ya limpió su zona por completo pero el juego sigue (hay comida en otras zonas),
+        #         # penalizamos quedarse en esta zona dado que ya no queda comida y obligamos a que cambie de zona
+        #         score -= 100.0
         #Combinar la puntuación de la red con la heurística
         neural_score = 0
         for i, action in enumerate(self.idx_to_action.values()):
@@ -444,27 +436,27 @@ class NeuralAgent(Agent):
                 neural_score += probabilities[i] * 100
         
         
-       # Factor 4: Premiar comer cápsulas (cocos) si los fantasmas están cerca
-        capsulas = state.getCapsules()
-        if capsulas:
-            # Calcular la distancia al fantasma más cercano que no esté asustado
-            fantasmas_peligrosos = [
-                manhattanDistance(pacman_pos, g.getPosition()) 
-                for g in ghost_states if g.scaredTimer == 0
-            ]
+    #    # Factor 4: Premiar comer cápsulas (cocos) si los fantasmas están cerca
+    #     capsulas = state.getCapsules()
+    #     if capsulas:
+    #         # Calcular la distancia al fantasma más cercano que no esté asustado
+    #         fantasmas_peligrosos = [
+    #             manhattanDistance(pacman_pos, g.getPosition()) 
+    #             for g in ghost_states if g.scaredTimer == 0
+    #         ]
             
-            if fantasmas_peligrosos:
-                min_dist_fantasma = min(fantasmas_peligrosos)
+    #         if fantasmas_peligrosos:
+    #             min_dist_fantasma = min(fantasmas_peligrosos)
                 
-                # Definimos el umbral de peligro (la mitad del mapa)
-                umbral_peligro = min(width, height) / 2
+    #             # Definimos el umbral de peligro (la mitad del mapa)
+    #             umbral_peligro = min(width, height) / 2
                 
-                if min_dist_fantasma <= umbral_peligro:
-                    # Si hay peligro, premiar la cercanía a la cápsula
-                    min_dist_capsula = min(manhattanDistance(pacman_pos, cap) for cap in capsulas)
+    #             if min_dist_fantasma <= umbral_peligro:
+    #                 # Si hay peligro, premiar la cercanía a la cápsula
+    #                 min_dist_capsula = min(manhattanDistance(pacman_pos, cap) for cap in capsulas)
                     
-                    #Cuanto más cerca la cápsula y más cerca el fantasma, más urge comerla
-                    score += 100.0 / (min_dist_capsula + 1)
+    #                 #Cuanto más cerca la cápsula y más cerca el fantasma, más urge comerla
+    #                 score += 100.0 / (min_dist_capsula + 1)
         
 
 
@@ -546,3 +538,130 @@ def createNeuralAgent(model_path="models/pacman_model.pth"):
     Útil para integrarse con la estructura de pacman.py.
     """
     return NeuralAgent(model_path)
+
+
+
+
+###################
+####Unai Y Raúl####
+###################
+
+class AlphaBetaNeuralAgent(NeuralAgent):
+    def __init__(self, model_path="models/pacman_model.pth", depth='2',
+                 w_heuristic=0.6, w_neural=0.4):
+        NeuralAgent.__init__(self, model_path)  # carga modelo, idx_to_action, etc.
+        self.depth = int(depth)                 # ← lo añades tú manualmente
+        self.w_heuristic = w_heuristic
+        self.w_neural = w_neural
+        self.evaluationFunction = self.combined_evaluation
+
+    def combined_evaluation(self, state):
+        """
+        Esto es lo que se llama en cada hoja del árbol Alfa-Beta.
+        Combina heurísticas clásicas + salida de la red neuronal.
+        """
+        trad_score = self.traditional_evaluation(state)   # heurísticas (factores 1,2,3,4...)
+        neural_score = self.neural_evaluation(state)       # lo que predice la red
+        
+        return self.w_heuristic * trad_score + self.w_neural * neural_score
+
+    def traditional_evaluation(self, state):
+        score = state.getScore()
+        pacman_pos = state.getPacmanPosition()
+        food = state.getFood().asList()
+        ghost_states = state.getGhostStates()
+        # Factor 1: Distancia a la comida más cercana
+        if food:
+            min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
+            score += 5.0 / (min_food_distance + 1)
+        
+        # Factor 2: Proximidad a fantasmas
+        for ghost_state in ghost_states:
+            ghost_pos = ghost_state.getPosition()
+            ghost_distance = manhattanDistance(pacman_pos, ghost_pos)
+            
+            if ghost_state.scaredTimer > 0:
+                # Si el fantasma está asustado, acercarse a él
+                score += 50 / (ghost_distance + 1)
+            else:
+                # Si no está asustado, evitarlo
+                if ghost_distance <= 2:
+                   score -= 200  # Gran penalización por estar demasiado cerca
+        return score
+
+    def neural_evaluation(self, state):
+        legal_actions = state.getLegalActions()
+        
+        # Evaluación directa con la red neuronal
+        state_matrix = self.state_to_matrix(state)
+        state_tensor = torch.FloatTensor(state_matrix).unsqueeze(0).to(self.device)
+        
+        with torch.no_grad():
+            output = self.model(state_tensor)
+            probabilities = torch.nn.functional.softmax(output, dim=1).cpu().numpy()[0]
+        
+       
+
+        neural_score = 0
+        for i, action in enumerate(self.idx_to_action.values()):
+            if action in legal_actions:
+                neural_score += probabilities[i] * 100
+
+        return neural_score
+
+    def getAction(self, gameState):
+
+        def alphabeta(agentIndex, depth, gameState, alpha, beta):
+            if depth == self.depth or gameState.isWin() or gameState.isLose():
+                return self.evaluationFunction(gameState)
+            if agentIndex == 0:
+                return maxValue(agentIndex, depth, gameState, alpha, beta)
+            else:
+                return minValue(agentIndex, depth, gameState, alpha, beta)
+
+        def maxValue(agentIndex, depth, gameState, alpha, beta):
+            v = float('-inf')
+            legalActions = gameState.getLegalActions(agentIndex)
+            if not legalActions:
+                return self.evaluationFunction(gameState)
+            for action in legalActions:
+                successor = gameState.generateSuccessor(agentIndex, action)
+                v = max(v, alphabeta(1, depth, successor, alpha, beta))
+                alpha = max(alpha, v)  
+                if v > beta:
+                    break
+            return v
+
+        def minValue(agentIndex, depth, gameState, alpha, beta):
+            v = float('inf')
+            legalActions = gameState.getLegalActions(agentIndex)
+            if not legalActions:
+                return self.evaluationFunction(gameState)
+            nextAgent = agentIndex + 1
+            nextDepth = depth
+            if nextAgent == gameState.getNumAgents():
+                nextAgent = 0
+                nextDepth = depth + 1
+            for action in legalActions:
+                successor = gameState.generateSuccessor(agentIndex, action)
+                v = min(v, alphabeta(nextAgent, nextDepth, successor, alpha, beta))
+                beta = min(beta, v)  # beta local a esta rama
+                if v < alpha:
+                    break
+            return v
+
+        # Main decision logic for Pacman
+        bestAction = None
+        bestScore = float('-inf')
+
+        # Try each legal action for Pacman
+        for action in gameState.getLegalActions(0):
+            successor = gameState.generateSuccessor(0, action)
+            # Start minimax with first ghost (agent 1) at current depth
+            score = alphabeta(1, 0, successor, float('-inf'), float('+inf'))
+            
+            if score > bestScore:
+                bestScore = score
+                bestAction = action
+
+        return bestAction
