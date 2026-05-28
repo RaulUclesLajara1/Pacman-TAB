@@ -664,4 +664,5 @@ class AlphaBetaNeuralAgent(NeuralAgent):
                 bestScore = score
                 bestAction = action
 
+
         return bestAction
