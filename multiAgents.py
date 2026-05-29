@@ -388,8 +388,8 @@ class NeuralAgent(Agent):
                 # ese tiempo para centrarse únicamente en comer cocos.
             else:
                 # Solo penalizar dentro del radio de peligro
-                radio_peligro = 4  # Solo penalizar si el fantasma está realmente cerca
-                if ghost_dist < radio_peligro:
+                radio_peligro = 5  # Solo penalizar si el fantasma está realmente cerca
+                if ghost_dist <= radio_peligro:
                     if ghost_dist <= 2:
                         score -= 650 / (ghost_dist + 1)  # Muerte inminente
                     else:
@@ -401,7 +401,7 @@ class NeuralAgent(Agent):
         if visit_count > 1:
         # Penalización proporcional: cuantas más veces aparece la posición
         # en el historial reciente, más se penaliza esa dirección.
-            score -= 100 * visit_count
+            score -= 35 * visit_count
 
         # Combinar la puntuación de la red con la heurística
         neural_score = 0
@@ -419,15 +419,13 @@ class NeuralAgent(Agent):
         self.move_count += 1
         
         # ── Actualización del historial ──────────────────────────────────────────
-        # Se registra la posición REAL y ACTUAL de Pacman UNA SOLA VEZ por turno,
-        # aquí en getAction, antes de evaluar ningún sucesor.
+        # Se registra la posición actual de Pacman una vez por turno en getAction.
         # No se hace en evaluationFunction porque esa se llama múltiples veces
         # por turno (una por cada acción legal), lo que corrompería el historial
         # con posiciones hipotéticas de estados que nunca llegarán a ocurrir.
         current_pos = state.getPacmanPosition()
-        current_pos = state.getPacmanPosition()
         self.position_history.append(current_pos)
-        if len(self.position_history) > 25:
+        if len(self.position_history) > 15:
             self.position_history.pop(0)
 
         # Si no hay modelo, hacer un movimiento aleatorio
