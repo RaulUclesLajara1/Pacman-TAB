@@ -374,9 +374,10 @@ class NeuralAgent(Agent):
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
             score += 15.0 / (min_food_distance + 1)
         
+        # Factor 2: Penalizar por cantidad de comida restante
             score -= len(food) * 2.0
         
-        # Factor 2: Penalizar estar cerca de fantasmas si no están asustados
+        # Factor 3: Penalizar estar cerca de fantasmas si no están asustados
         for ghost_state in ghost_states:
             ghost_pos = ghost_state.getPosition()
             ghost_dist = manhattanDistance(pacman_pos, ghost_pos)
@@ -395,7 +396,7 @@ class NeuralAgent(Agent):
                     else:
                         score -= 180.0 / (ghost_dist + 1)
 
-        # Factor 3: Historial de posicines anteriores para penalizar entrar en bucles
+        # Factor 4: Historial de posicines anteriores para penalizar entrar en bucles
         pacman_pos = state.getPacmanPosition()
         visit_count = self.position_history.count(pacman_pos)
         if visit_count > 1:
