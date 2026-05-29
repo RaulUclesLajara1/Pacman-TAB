@@ -743,7 +743,7 @@ def runGames(layout, pacman, ghosts, display, numGames, record, numTraining=0, c
 
     # Fijar semilla consistente
 
-    seed = '3'  # o cualquier valor fijo
+    seed = '7'  # o cualquier valor fijo
 
     random.seed(seed)
     ###################################################

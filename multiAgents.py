@@ -391,9 +391,9 @@ class NeuralAgent(Agent):
                 radio_peligro = 4  # Solo penalizar si el fantasma está realmente cerca
                 if ghost_dist < radio_peligro:
                     if ghost_dist <= 2:
-                        score -= 650 / ghost_dist + 1  # Muerte inminente
+                        score -= 650 / (ghost_dist + 1)  # Muerte inminente
                     else:
-                        score -= 180.0 / ghost_dist + 1
+                        score -= 180.0 / (ghost_dist + 1)
 
         # Factor 3: Historial de posicines anteriores para penalizar entrar en bucles
         pacman_pos = state.getPacmanPosition()
@@ -530,23 +530,40 @@ class AlphaBetaNeuralAgent(NeuralAgent):
         pacman_pos = state.getPacmanPosition()
         food = state.getFood().asList()
         ghost_states = state.getGhostStates()
-        # Factor 1: Distancia a la comida más cercana
+        # Factor 1: Premiar ir a por comida
         if food:
             min_food_distance = min(manhattanDistance(pacman_pos, food_pos) for food_pos in food)
-            score += 5.0 / (min_food_distance + 1)
+            score += 15.0 / (min_food_distance + 1)
         
-        # Factor 2: Proximidad a fantasmas
+            score -= len(food) * 2.0
+        
+        # Factor 2: Penalizar estar cerca de fantasmas si no están asustados
         for ghost_state in ghost_states:
             ghost_pos = ghost_state.getPosition()
-            ghost_distance = manhattanDistance(pacman_pos, ghost_pos)
+            ghost_dist = manhattanDistance(pacman_pos, ghost_pos)
             
             if ghost_state.scaredTimer > 0:
-                # Si el fantasma está asustado, acercarse a él
-                score += 50 / (ghost_distance + 1)
+                pass
+                # En ocasiones es mejor no comer fantasmas cuando están asustados,
+                # cuando están asustados se alejan por lo que se puede aprovechar
+                # ese tiempo para centrarse únicamente en comer cocos.
             else:
-                # Si no está asustado, evitarlo
-                if ghost_distance <= 2:
-                   score -= 200  # Gran penalización por estar demasiado cerca
+                # Solo penalizar dentro del radio de peligro
+                radio_peligro = 4  # Solo penalizar si el fantasma está realmente cerca
+                if ghost_dist < radio_peligro:
+                    if ghost_dist <= 2:
+                        score -= 650 / (ghost_dist + 1) # Muerte inminente
+                    else:
+                        score -= 180.0 / (ghost_dist + 1)
+
+        # Factor 3: Historial de posicines anteriores para penalizar entrar en bucles
+        pacman_pos = state.getPacmanPosition()
+        visit_count = self.position_history.count(pacman_pos)
+        if visit_count > 1:
+        # Penalización proporcional: cuantas más veces aparece la posición
+        # en el historial reciente, más se penaliza esa dirección.
+            score -= 100 * visit_count
+
         return score
 
     def neural_evaluation(self, state):
