@@ -510,8 +510,8 @@ class AlphaBetaNeuralAgent(NeuralAgent):
                  w_heuristic=0.6, w_neural=0.4):
         NeuralAgent.__init__(self, model_path)  # carga modelo, idx_to_action, etc.
         self.depth = int(depth)                 # ← lo añades tú manualmente
-        self.w_heuristic = w_heuristic
-        self.w_neural = w_neural
+        self.w_heuristic = float(w_heuristic)
+        self.w_neural = float(w_neural)
         self.evaluationFunction = self.combined_evaluation
 
     def combined_evaluation(self, state):
